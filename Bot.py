@@ -2,7 +2,22 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from datetime import datetime, timedelta
 import re
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import os
 
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_server():
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    server.serve_forever()
+
+threading.Thread(target=run_server, daemon=True).start()
 api_id = 2040
 api_hash = "b18441a1ff607e10a989891a5462e627"
 bot_token = "8507781595:AAEZNfvzi4CMieBu3y5xNBR3cWCBciBTlrU"
