@@ -2,23 +2,6 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from datetime import datetime, timedelta
 import re
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
-import os
-
-# HTTP сервер для Render
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-def run_server():
-    port = int(os.environ.get('PORT', 10000))
-    server = HTTPServer(('0.0.0.0', port), Handler)
-    server.serve_forever()
-
-threading.Thread(target=run_server, daemon=True).start()
 
 api_id = 2040
 api_hash = "b18441a1ff607e10a989891a5462e627"
@@ -55,11 +38,8 @@ def log_action(admin_id, admin_name, action):
     logs.append({"time": datetime.now().strftime("%d.%m.%Y %H:%M"), "admin": f"@{admin_name}" if admin_name else str(admin_id), "action": action})
     if len(logs) > 200: logs.pop(0)
 
-def get_level(uid):
-    return admins.get(uid, {}).get("level", -1)
-
-def is_admin(uid):
-    return uid in admins
+def get_level(uid): return admins.get(uid, {}).get("level", -1)
+def is_admin(uid): return uid in admins
 
 def is_banned(uid):
     if uid in banned: return True
@@ -132,7 +112,6 @@ def format_mute_duration(duration):
     if minutes: parts.append(f"{minutes} мин.")
     return " ".join(parts) if parts else "0 мин."
 
-# ========== СТАРТ ==========
 @app.on_message(filters.command("start"))
 async def start(client, message):
     uid = message.from_user.id
@@ -148,9 +127,7 @@ async def submit_idea(client, message):
         remaining = idea_cooldown[uid] - datetime.now()
         if remaining.total_seconds() > 0:
             await message.reply(f"⏳ Ты сможешь подать следующую идею через {int(remaining.total_seconds()//60)+1} мин."); return
-    waiting_for[uid] = "idea"
-    reply_mode.pop(uid, None)
-    mute_data.pop(uid, None)
+    waiting_for[uid] = "idea"; reply_mode.pop(uid, None); mute_data.pop(uid, None)
     await message.reply("Напиши свою идею для ТГК:", reply_markup=back_button())
 
 @app.on_message(filters.text & filters.regex("^🎮 Вопрос по игре$"))
@@ -161,9 +138,7 @@ async def ask_question(client, message):
         remaining = question_cooldown[uid] - datetime.now()
         if remaining.total_seconds() > 0:
             await message.reply(f"⏳ Ты сможешь задать следующий вопрос через {int(remaining.total_seconds()//60)+1} мин."); return
-    waiting_for[uid] = "question"
-    reply_mode.pop(uid, None)
-    mute_data.pop(uid, None)
+    waiting_for[uid] = "question"; reply_mode.pop(uid, None); mute_data.pop(uid, None)
     await message.reply("Опиши проблему. Можешь прикрепить фото.", reply_markup=back_button())
 
 @app.on_message(filters.text & filters.regex("^📋 Мои заявки$"))
@@ -192,11 +167,7 @@ async def active_ideas(client, message):
     if not pending: await message.reply("Нет активных идей для ТГК.", reply_markup=back_button()); return
     for iid, data in pending.items():
         status_text = "🤔 На раздумии" if data["status"]=="thinking" else "⏳ Новая"
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Принять", callback_data=f"acc_{iid}"), InlineKeyboardButton("❌ Отклонить", callback_data=f"rej_{iid}")],
-            [InlineKeyboardButton("🤔 На раздумии", callback_data=f"think_{iid}"), InlineKeyboardButton("💬 Ответить", callback_data=f"irep_{iid}")],
-            [InlineKeyboardButton("🗑 Удалить", callback_data=f"delidea_{iid}"), InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
-        ])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Принять", callback_data=f"acc_{iid}"), InlineKeyboardButton("❌ Отклонить", callback_data=f"rej_{iid}")], [InlineKeyboardButton("🤔 На раздумии", callback_data=f"think_{iid}"), InlineKeyboardButton("💬 Ответить", callback_data=f"irep_{iid}")], [InlineKeyboardButton("🗑 Удалить", callback_data=f"delidea_{iid}"), InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]])
         await message.reply(f"📩 Идея для ТГК #{iid} [{status_text}]\nОт: @{data['username']}\nТекст: {data['text']}", reply_markup=kb)
 
 @app.on_message(filters.text & filters.regex("^🎮 Вопросы по игре$"))
@@ -205,10 +176,7 @@ async def admin_questions(client, message):
     pending = {k:v for k,v in questions.items() if v["status"]=="pending"}
     if not pending: await message.reply("Нет активных вопросов по игре.", reply_markup=back_button()); return
     for qid, data in pending.items():
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 Ответить", callback_data=f"qrep_{qid}")],
-            [InlineKeyboardButton("🗑 Удалить", callback_data=f"delquestion_{qid}"), InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
-        ])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("💬 Ответить", callback_data=f"qrep_{qid}")], [InlineKeyboardButton("🗑 Удалить", callback_data=f"delquestion_{qid}"), InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]])
         text = f"🎮 Вопрос по игре #{qid}\nОт: @{data['username']}\nТекст: {data['text']}"
         if data.get("photo"): await message.reply_photo(data["photo"], caption=text, reply_markup=kb)
         else: await message.reply(text, reply_markup=kb)
@@ -242,11 +210,8 @@ async def show_logs(client, message):
 async def admin_panel(client, message):
     uid = message.from_user.id; lvl = get_level(uid)
     if lvl < 0: return
-    kb_buttons = [[InlineKeyboardButton("📋 Список админов", callback_data="adm_list")]]
-    kb_buttons.append([InlineKeyboardButton("💬 Чат", url=CHAT_LINK)])
-    if lvl >= 2:
-        kb_buttons.append([InlineKeyboardButton("➕ Добавить админа", callback_data="adm_add")])
-        kb_buttons.append([InlineKeyboardButton("🔍 Поиск пользователя", callback_data="search_user")])
+    kb_buttons = [[InlineKeyboardButton("📋 Список админов", callback_data="adm_list")], [InlineKeyboardButton("💬 Чат", url=CHAT_LINK)]]
+    if lvl >= 2: kb_buttons.append([InlineKeyboardButton("➕ Добавить админа", callback_data="adm_add")]); kb_buttons.append([InlineKeyboardButton("🔍 Поиск пользователя", callback_data="search_user")])
     kb_buttons.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
     await message.reply("👑 Админ-панель:", reply_markup=InlineKeyboardMarkup(kb_buttons))
 
@@ -259,9 +224,7 @@ async def adm_list(client, callback_query):
         lvl_name = {0:"🔰 Испытательный",1:"Помощник",2:"Модер",3:"Глава"}[data["level"]]
         text += f"@{data['username']} — {lvl_name} | Варны: {data['warns']}/3"
         if data["level"] == 0: text += f" | Ответов сегодня: {TRIAL_DAILY_LIMIT - data.get('daily_answers',0)}/{TRIAL_DAILY_LIMIT}"
-        if lvl >= 2 and data["level"] < lvl:
-            text += " [Доступен]"
-            kb.inline_keyboard.append([InlineKeyboardButton(f"⚙️ @{data['username']}", callback_data=f"admact_{aid}")])
+        if lvl >= 2 and data["level"] < lvl: text += " [Доступен]"; kb.inline_keyboard.append([InlineKeyboardButton(f"⚙️ @{data['username']}", callback_data=f"admact_{aid}")])
         text += "\n"
     if lvl >= 2: kb.inline_keyboard.append([InlineKeyboardButton("➕ Добавить", callback_data="adm_add")])
     kb.inline_keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
@@ -270,21 +233,18 @@ async def adm_list(client, callback_query):
 @app.on_callback_query(filters.regex("adm_add"))
 async def adm_add_prompt(client, callback_query):
     if get_level(callback_query.from_user.id) < 2: await callback_query.answer("Нет доступа."); return
-    waiting_for[callback_query.from_user.id] = "add_admin"
-    mute_data.pop(callback_query.from_user.id, None); reply_mode.pop(callback_query.from_user.id, None)
+    waiting_for[callback_query.from_user.id] = "add_admin"; mute_data.pop(callback_query.from_user.id, None); reply_mode.pop(callback_query.from_user.id, None)
     await callback_query.message.reply("Отправь @username пользователя для добавления:", reply_markup=back_button()); await callback_query.answer()
 
 @app.on_callback_query(filters.regex("search_user"))
 async def search_user_prompt(client, callback_query):
     if get_level(callback_query.from_user.id) < 2: await callback_query.answer("Нет доступа."); return
-    waiting_for[callback_query.from_user.id] = "search_user"
-    mute_data.pop(callback_query.from_user.id, None); reply_mode.pop(callback_query.from_user.id, None)
+    waiting_for[callback_query.from_user.id] = "search_user"; mute_data.pop(callback_query.from_user.id, None); reply_mode.pop(callback_query.from_user.id, None)
     await callback_query.message.reply("Отправь @username пользователя для поиска:", reply_markup=back_button()); await callback_query.answer()
 
 @app.on_callback_query(filters.regex("back_to_main"))
 async def callback_back(client, callback_query):
-    uid = callback_query.from_user.id
-    waiting_for.pop(uid, None); reply_mode.pop(uid, None); mute_data.pop(uid, None)
+    uid = callback_query.from_user.id; waiting_for.pop(uid, None); reply_mode.pop(uid, None); mute_data.pop(uid, None)
     if is_admin(uid): await callback_query.message.reply("Главное меню:", reply_markup=admin_menu(uid))
     else: await callback_query.message.reply("Главное меню:", reply_markup=user_menu())
     await callback_query.answer()
@@ -294,7 +254,6 @@ async def handle_username(client, message):
     uid = message.from_user.id; mode = waiting_for.get(uid)
     if mode not in ("add_admin","search_user"): return
     target_uname = message.text.replace("@","").strip()
-
     if mode == "add_admin":
         if get_level(uid) < 2: await message.reply("Нет доступа.", reply_markup=back_button()); waiting_for.pop(uid,None); return
         target_uid = None
@@ -312,10 +271,8 @@ async def handle_username(client, message):
                 if found: target_uid = found.id
             except: pass
         if not target_uid: await message.reply("Пользователь не найден.", reply_markup=back_button()); waiting_for.pop(uid,None); return
-        waiting_for[uid] = "add_admin_level"
-        mute_data[uid] = {"target_uid": target_uid, "target_uname": target_uname}
+        waiting_for[uid] = "add_admin_level"; mute_data[uid] = {"target_uid": target_uid, "target_uname": target_uname}
         await message.reply(f"Выбери уровень для @{target_uname}:\n0 — Испытательный (10 ответов/24ч)\n1 — Помощник (вопросы)\n2 — Модер (вопросы + управление)\nОтправь цифру 0, 1 или 2.", reply_markup=back_button())
-
     elif mode == "search_user":
         if get_level(uid) < 2: await message.reply("Нет доступа.", reply_markup=back_button()); waiting_for.pop(uid,None); return
         target_uid = None
@@ -358,23 +315,19 @@ async def handle_text(client, message):
     spam_status = is_spam(uid)
     if spam_status == "warn": await message.reply("Эй, не так быстро! Помедленнее, я не успеваю."); return
     elif spam_status == "block": return
-
     if waiting_for.get(uid) == "add_admin_level":
         try:
             lvl = int(message.text.strip())
             if lvl not in (0,1,2): raise ValueError
         except: await message.reply("Отправь 0, 1 или 2.", reply_markup=back_button()); return
-        data = mute_data.pop(uid, {})
-        target_uid, target_uname = data.get("target_uid"), data.get("target_uname")
+        data = mute_data.pop(uid, {}); target_uid, target_uname = data.get("target_uid"), data.get("target_uname")
         if not target_uid: await message.reply("Ошибка.", reply_markup=back_button()); waiting_for.pop(uid,None); return
         admins[target_uid] = {"level": lvl, "username": target_uname, "warns": 0, "trial_start": datetime.now() if lvl==0 else None, "daily_answers": 0, "daily_reset": datetime.now()+timedelta(hours=24) if lvl==0 else None}
         log_action(uid, message.from_user.username, f"Добавил админа @{target_uname} уровня {lvl}")
         lvl_name = {0:"Испытательный",1:"Помощник",2:"Модер"}[lvl]
         try: await client.send_message(target_uid, f"🎉 Поздравляем! Вы назначены администратором бота.\nУровень: {lvl_name}\nИспользуйте /start для обновления меню.")
         except: pass
-        await message.reply(f"✅ @{target_uname} добавлен как {lvl_name}.", reply_markup=back_button())
-        waiting_for.pop(uid,None); return
-
+        await message.reply(f"✅ @{target_uname} добавлен как {lvl_name}.", reply_markup=back_button()); waiting_for.pop(uid,None); return
     if uid in reply_mode and "type" in reply_mode[uid]:
         mode = reply_mode[uid]
         if mode["type"] == "idea_reply":
@@ -387,10 +340,8 @@ async def handle_text(client, message):
             await message.reply("Ответ отправлен. Можешь отправить ещё или нажми «Назад».", reply_markup=back_button())
             log_action(uid, message.from_user.username, f"Ответил на вопрос #{mode['id']}")
         return
-
     if waiting_for.get(uid) == "waiting_mute_time":
-        data = mute_data.get(uid, {})
-        target_uid, target_uname = data.get("target_uid"), data.get("target_uname")
+        data = mute_data.get(uid, {}); target_uid, target_uname = data.get("target_uid"), data.get("target_uname")
         duration = parse_mute_time(message.text)
         if duration is None: await message.reply("Не понял формат.", reply_markup=back_button()); return
         mute_str = "навсегда" if duration=="forever" else format_mute_duration(duration)
@@ -401,9 +352,7 @@ async def handle_text(client, message):
         await message.reply(f"🔇 @{target_uname} заглушен на {mute_str}.", reply_markup=back_button())
         log_action(uid, message.from_user.username, f"Заглушил @{target_uname} на {mute_str}")
         waiting_for.pop(uid,None); mute_data.pop(uid,None); return
-
     if is_admin(uid): return
-
     mode = waiting_for.get(uid)
     if mode == "idea":
         iid = idea_counter; idea_counter += 1
@@ -444,48 +393,40 @@ async def handle_photo(client, message):
 @app.on_callback_query()
 async def callback_handler(client, callback_query):
     uid = callback_query.from_user.id; data = callback_query.data
-
     if data.startswith("delidea_"):
         if get_level(uid) != 3: await callback_query.answer("Только глава."); return
         iid = int(data.split("_")[1])
         if iid in apps: username = apps[iid]["username"]; del apps[iid]; log_action(uid, callback_query.from_user.username, f"Удалил идею #{iid} от @{username}"); await callback_query.message.edit_text(callback_query.message.text + "\n\n🗑 УДАЛЕНО")
-
     elif data.startswith("delquestion_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         qid = int(data.split("_")[1])
         if qid in questions: username = questions[qid]["username"]; del questions[qid]; log_action(uid, callback_query.from_user.username, f"Удалил вопрос #{qid} от @{username}"); await callback_query.message.edit_text(callback_query.message.text + "\n\n🗑 УДАЛЕНО")
-
     elif data.startswith("acc_"):
         if get_level(uid) != 3: await callback_query.answer("Только глава."); return
         iid = int(data.split("_")[1]); apps[iid]["status"] = "accepted"; apps[iid]["processed_by"] = callback_query.from_user.username or str(uid)
         await client.send_message(apps[iid]["user_id"], f"✅ Твоя идея для ТГК #{iid} ПРИНЯТА!"); await callback_query.message.edit_text(callback_query.message.text + "\n\n✅ ПРИНЯТО")
         log_action(uid, callback_query.from_user.username, f"Принял идею #{iid}")
-
     elif data.startswith("rej_"):
         if get_level(uid) != 3: await callback_query.answer("Только глава."); return
         iid = int(data.split("_")[1]); apps[iid]["status"] = "rejected"; apps[iid]["processed_by"] = callback_query.from_user.username or str(uid)
         await client.send_message(apps[iid]["user_id"], f"❌ Твоя идея для ТГК #{iid} отклонена."); await callback_query.message.edit_text(callback_query.message.text + "\n\n❌ ОТКЛОНЕНО")
         log_action(uid, callback_query.from_user.username, f"Отклонил идею #{iid}")
-
     elif data.startswith("think_"):
         if get_level(uid) != 3: await callback_query.answer("Только глава."); return
         iid = int(data.split("_")[1])
         if apps[iid]["status"] == "thinking": apps[iid]["status"] = "pending"; await callback_query.message.edit_text(callback_query.message.text.replace("🤔 На раздумии", "⏳ Новая"))
         else: apps[iid]["status"] = "thinking"; await callback_query.message.edit_text(callback_query.message.text.replace("⏳ Новая", "🤔 На раздумии"))
         log_action(uid, callback_query.from_user.username, f"Статус идеи #{iid}: {'На раздумии' if apps[iid]['status']=='thinking' else 'Новая'}")
-
     elif data.startswith("irep_"):
         if get_level(uid) != 3: await callback_query.answer("Только глава."); return
         iid = int(data.split("_")[1]); reply_mode[uid] = {"type": "idea_reply", "id": iid}; mute_data.pop(uid, None)
         await callback_query.message.reply("Напиши ответ. Нажми «Назад» когда закончишь.", reply_markup=back_button())
-
     elif data.startswith("qrep_"):
         if get_level(uid) < 0: return
         if not check_trial_limit(uid): await callback_query.answer("Лимит ответов исчерпан."); return
         qid = int(data.split("_")[1]); questions[qid]["status"] = "answered"; questions[qid]["answered_by"] = callback_query.from_user.username or str(uid)
         reply_mode[uid] = {"type": "question_reply", "id": qid}; mute_data.pop(uid, None)
         await callback_query.message.reply("Напиши ответ. Нажми «Назад» когда закончишь.", reply_markup=back_button())
-
     elif data.startswith("banuser_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); target_uname = "пользователь"
@@ -500,15 +441,12 @@ async def callback_handler(client, callback_query):
         await callback_query.answer(f"🚫 @{target_uname} заблокирован.")
         try: await callback_query.message.edit_text(callback_query.message.text + f"\n\n🚫 @{target_uname} ЗАБАНЕН")
         except: pass
-
     elif data.startswith("unbanuser_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); banned.discard(target_uid)
         try: await client.send_message(target_uid, "✅ Вы разблокированы в боте.")
         except: pass
-        log_action(uid, callback_query.from_user.username, f"Разбанил @{target_uid}")
-        await callback_query.answer("✅ Разбанен.")
-
+        log_action(uid, callback_query.from_user.username, f"Разбанил @{target_uid}"); await callback_query.answer("✅ Разбанен.")
     elif data.startswith("muteuser_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); target_uname = "пользователь"
@@ -518,15 +456,12 @@ async def callback_handler(client, callback_query):
             if a["user_id"] == target_uid: target_uname = a["username"]; break
         waiting_for[uid] = "waiting_mute_time"; mute_data[uid] = {"target_uid": target_uid, "target_uname": target_uname}; reply_mode.pop(uid, None)
         await callback_query.message.reply(f"На сколько заглушить @{target_uname}?\nПримеры: '10 минут', '2 часа', '3 дня', '1 неделя', 'навсегда'.", reply_markup=back_button())
-
     elif data.startswith("unmuteuser_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); muted.pop(target_uid, None)
         try: await client.send_message(target_uid, "🔊 Вы размучены в боте.")
         except: pass
-        log_action(uid, callback_query.from_user.username, f"Размутил @{target_uid}")
-        await callback_query.answer("✅ Размучен.")
-
+        log_action(uid, callback_query.from_user.username, f"Размутил @{target_uid}"); await callback_query.answer("✅ Размучен.")
     elif data.startswith("admact_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_",1)); my_lvl, target_lvl = get_level(uid), get_level(target_uid)
@@ -534,7 +469,6 @@ async def callback_handler(client, callback_query):
         target_uname = admins[target_uid]["username"]; warns = admins[target_uid]["warns"]
         kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"⚠️ Варн ({warns}/3)", callback_data=f"warn_{target_uid}")], [InlineKeyboardButton("🚫 Уволить", callback_data=f"fire_{target_uid}")], [InlineKeyboardButton("🔙 Назад", callback_data="adm_list")]])
         await callback_query.message.reply(f"Действия с @{target_uname} (уровень {target_lvl}):", reply_markup=kb)
-
     elif data.startswith("warn_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); my_lvl, target_lvl = get_level(uid), get_level(target_uid)
@@ -543,13 +477,11 @@ async def callback_handler(client, callback_query):
         log_action(uid, callback_query.from_user.username, f"Выдал варн @{target_uname} ({warns}/3)")
         try: await client.send_message(target_uid, f"⚠️ Администратор @{callback_query.from_user.username} выдал вам варн ({warns}/3).")
         except: pass
-        if warns >= 3:
-            del admins[target_uid]; log_action(uid, callback_query.from_user.username, f"Уволил @{target_uname} (3 варна)")
-            try: await client.send_message(target_uid, "🚫 Вы уволены (3 варна).")
-            except: pass
-            await callback_query.message.reply(f"🚫 @{target_uname} получил 3/3 варнов и уволен.", reply_markup=back_button())
-        else: await callback_query.message.reply(f"⚠️ @{target_uname} получил варн ({warns}/3).", reply_markup=back_button())
-
+        if warns >= 3: del admins[target_uid]; log_action(uid, callback_query.from_user.username, f"Уволил @{target_uname} (3 варна)")
+        try: await client.send_message(target_uid, "🚫 Вы уволены (3 варна).")
+        except: pass
+        await callback_query.message.reply(f"🚫 @{target_uname} получил 3/3 варнов и уволен.", reply_markup=back_button())
+        if warns < 3: await callback_query.message.reply(f"⚠️ @{target_uname} получил варн ({warns}/3).", reply_markup=back_button())
     elif data.startswith("fire_"):
         if get_level(uid) < 2: await callback_query.answer("Нет доступа."); return
         target_uid = int(data.split("_")[1]); my_lvl, target_lvl = get_level(uid), get_level(target_uid)
@@ -559,7 +491,6 @@ async def callback_handler(client, callback_query):
         try: await client.send_message(target_uid, "🚫 Вы уволены с должности администратора.")
         except: pass
         await callback_query.message.reply(f"🚫 @{target_uname} уволен.", reply_markup=back_button())
-
     await callback_query.answer()
 
 app.run()
